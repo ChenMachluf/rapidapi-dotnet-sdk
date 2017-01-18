@@ -1,6 +1,7 @@
 ﻿using System;
 using RapidAPISDK;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace test
@@ -18,20 +19,15 @@ namespace test
             try
             {
                 var res = RapidApi.CallAsync<T>(pack, block, parameters).Result;
-                Console.WriteLine("success: " + res);
                 return res;
             }
-            catch (RapidAPIException e)
+            catch (RapidAPIServerException e)
             {
                 Console.WriteLine("Server error: " + e);
             }
             catch (Exception e)
             {
                 Console.WriteLine("Unknown exeption: " + e);
-            }
-            finally
-            {
-                Console.ReadKey();
             }
 
             return default(T);
@@ -65,27 +61,35 @@ namespace test
         }
 
 
-        private static void TestPackWithImg()
+        private static void TestPackWithImg(bool fromFile)
         {
-            var subscriptionKey = new DataParameter("subscriptionKey", "edf34f67-d14d-4608-ab44-9b44d37d16d3");
-            var image = new DataParameter("image", "http://cdn.litlepups.net/2015/08/31/cute-dog-baby-wallpaper-hd-21.jpg");
+            var subscriptionKey = new DataParameter("subscriptionKey", "fa9a945249f446cd82c8628179132474");
+            var image = fromFile ? new FileParameter("image", "dog.jpg") : (Parameter)new DataParameter("image", "http://cdn.litlepups.net/2015/08/31/cute-dog-baby-wallpaper-hd-21.jpg");
             var width = new DataParameter("width", "50");
             var height = new DataParameter("height", "50");
             var smartCropping = new DataParameter("smartCropping");
 
-            Call<object>("MicrosoftComputerVision", "analyzeImage", subscriptionKey, image, width, height, smartCropping);
+            var analyze = Call<AnalyzeImage>("MicrosoftComputerVision", "analyzeImage", subscriptionKey, image, width, height, smartCropping);
+            if (analyze == null) return;
+
+            Console.WriteLine(analyze.Categories.FirstOrDefault());
         }
 
         #endregion Tests
 
-
         static void Main(string[] args)
         {
             TestPublicPack();
-            TestPackWithImg();
+            Console.ReadKey();
+            TestPackWithImg(false);
+            Console.ReadKey();
+            TestPackWithImg(true);
+            Console.ReadKey();
             TestPack();
-
+            Console.ReadKey();
         }
+
+        #region Response Classes
 
         private class NasaPicOfDay
         {
@@ -104,6 +108,34 @@ namespace test
 
             public string Title { get; set; }
         }
+
+        private class AnalyzeImage
+        {
+            public List<Category> Categories { get; set; }
+
+            public Dictionary<string, object> Metadata { get; set; }
+
+            public string RequestId { get; set; }
+
+            public class Category
+            {
+                public string Name { get; set; }
+
+                public double Score { get; set; }
+
+                #region Overrides of Object
+
+                public override string ToString()
+                {
+                    return $"{Name} : {Score}";
+                }
+
+                #endregion
+            }
+
+        }
+
+        #endregion
 
     }
 }

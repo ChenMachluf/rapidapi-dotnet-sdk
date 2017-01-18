@@ -7,6 +7,7 @@ using System.Net.Http.Headers;
 using System.Collections.Generic;
 using System.Runtime.Remoting.Proxies;
 using System.Threading.Tasks;
+using RapidAPISDK.Response;
 
 namespace RapidAPISDK
 {
@@ -23,20 +24,21 @@ namespace RapidAPISDK
         * @param block Block to be called
         * @returns {string} Generated URL
         */
-        private string BlockURLBuilder(string pack, string block)
+        private string BuildBlockUrl(string pack, string block)
         {
             return $"{BaseUrl}/{pack}/{block}";
         }
 
-        #endregion Private Static Functions
+        #endregion 
 
-        #region Private Parameters 
+        #region Private Members 
 
-        private HttpClient _Client;
+        private readonly HttpClient _Client;
 
-        #endregion Private Parameters 
+        #endregion 
 
-        #region Public Functions
+        #region C'tor
+
 
         /***
         * Creates a new RapidAPI Connect instance
@@ -53,6 +55,9 @@ namespace RapidAPISDK
             _Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(auth));
         }
 
+        #endregion
+
+        #region Public Functions
 
         /***
         * Call a block
@@ -83,21 +88,18 @@ namespace RapidAPISDK
             foreach (var parameter in parameters)
                 parameter.AddToContent(form);
 
-            var response = await _Client.PostAsync(BlockURLBuilder(pack, block), form);
+            var response = await _Client.PostAsync(BuildBlockUrl(pack, block), form);
             var content = await response.Content.ReadAsStringAsync();
             try
             {
                 var rapidRes = JsonConvert.DeserializeObject<RapidResponse<T>>(content);
 
                 if (!response.IsSuccessStatusCode || !rapidRes.IsSuccess)
-                {
-                    var badRes = JsonConvert.DeserializeObject<RapidResponse<RapidAPIException.RapidAPIExceptionArgs>>(content);
-                    throw new RapidAPIException(badRes.Payload);
-                }
+                    throw rapidRes.RapidApiServerException;
 
                 return rapidRes.Payload;
             }
-            catch (RapidAPIException re)
+            catch (RapidAPIServerException)
             {
                 throw;
             }
@@ -107,23 +109,7 @@ namespace RapidAPISDK
             }
         }
 
-        #endregion Public Functions
-
-        #region Private Classes
-
-        private class RapidResponse<T>
-        {
-            public string Outcome { get; set; }
-
-            public T Payload { get; set; }
-
-            public bool IsSuccess
-            {
-                get { return string.IsNullOrWhiteSpace(Outcome) || !Outcome.Equals("error"); }
-            }
-        }
-
-        #endregion
+        #endregion 
 
     }
 }

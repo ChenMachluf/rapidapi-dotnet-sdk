@@ -44,12 +44,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FileParameter.cs" />
-    <Compile Include="Parameter.cs" />
+    <Compile Include="Parameters\FileParameter.cs" />
+    <Compile Include="Parameters\Parameter.cs" />
     <Compile Include="RapidAPI.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="DataParameter.cs" />
-    <Compile Include="RapidAPIException.cs" />
+    <Compile Include="Parameters\DataParameter.cs" />
+    <Compile Include="RapidAPIServerException.cs" />
+    <Compile Include="Response\RapidResponse.cs" />
+    <Compile Include="Response\RapidResponseConverter.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
