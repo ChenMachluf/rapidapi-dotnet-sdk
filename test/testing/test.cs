@@ -2,6 +2,8 @@
 using RapidAPISDK;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using Newtonsoft.Json;
 
 namespace test
@@ -39,11 +41,14 @@ namespace test
 
         private static void TestPublicPack()
         {
-            var apiKey = new DataParameter("apiKey");
-            var date = new DataParameter("date");
-            var highResolution = new DataParameter("highResolution");
+            var args = new List<Parameter>
+                       {
+                           new DataParameter("apiKey"),
+                           new DataParameter("date"),
+                           new DataParameter("highResolution")
+                       };
 
-            var pic = Call<NasaPicOfDay>("NasaAPI", "getPictureOfTheDay", apiKey, date, highResolution);
+            var pic = Call<NasaPicOfDay>("NasaAPI", "getPictureOfTheDay", args.ToArray());
             if (pic == null) return;
 
             Console.WriteLine(pic.Explanation);
@@ -75,6 +80,27 @@ namespace test
             Console.WriteLine(analyze.Categories.FirstOrDefault());
         }
 
+        private static void TestPackWithImgFromStream()
+        {
+            var client = new HttpClient();
+            var res = client.GetAsync("http://cdn.litlepups.net/2015/08/31/cute-dog-baby-wallpaper-hd-21.jpg").Result;
+            var stream = res.Content.ReadAsStreamAsync().Result;
+
+            var args = new List<Parameter>
+                       {
+                           new DataParameter("subscriptionKey", "fa9a945249f446cd82c8628179132474"),
+                           new FileParameter("image", stream, "nasaImage"),
+                           new DataParameter("width", "50"),
+                           new DataParameter("height", "50"),
+                           new DataParameter("smartCropping")
+                       };
+
+            var analyze = Call<AnalyzeImage>("MicrosoftComputerVision", "analyzeImage", args.ToArray());
+            if (analyze == null) return;
+
+            Console.WriteLine(analyze.Categories.FirstOrDefault());
+        }
+
         #endregion Tests
 
         static void Main(string[] args)
@@ -84,6 +110,8 @@ namespace test
             TestPackWithImg(false);
             Console.ReadKey();
             TestPackWithImg(true);
+            Console.ReadKey();
+            TestPackWithImgFromStream();
             Console.ReadKey();
             TestPack();
             Console.ReadKey();
