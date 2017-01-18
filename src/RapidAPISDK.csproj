@@ -44,9 +44,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FileParameter.cs" />
     <Compile Include="Parameter.cs" />
     <Compile Include="RapidAPI.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="DataParameter.cs" />
+    <Compile Include="RapidAPIException.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -5,26 +5,17 @@ using System.Net.Http;
 using Newtonsoft.Json;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
+using System.Runtime.Remoting.Proxies;
+using System.Threading.Tasks;
 
 namespace RapidAPISDK
 {
     public class RapidAPI
     {
-        #region Private Parameters 
-        string key;
-        string project;
-        #endregion Private Parameters 
 
         #region Private Static Functions
 
-        /***
-        * Returns the base URL for block calls
-        * @returns {string} Base URL for block calls
-        */
-        private string getBaseURL()
-        {
-            return "https://rapidapi.io/connect";
-        }
+        private const string BaseUrl = "https://rapidapi.io/connect";
 
         /***
         * Build a URL for a block call
@@ -32,24 +23,34 @@ namespace RapidAPISDK
         * @param block Block to be called
         * @returns {string} Generated URL
         */
-        private string blockURLBuilder(string pack, string block)
+        private string BlockURLBuilder(string pack, string block)
         {
-            return (getBaseURL() + "/" + pack + "/" + block);
+            return $"{BaseUrl}/{pack}/{block}";
         }
 
         #endregion Private Static Functions
+
+        #region Private Parameters 
+
+        private HttpClient _Client;
+
+        #endregion Private Parameters 
 
         #region Public Functions
 
         /***
         * Creates a new RapidAPI Connect instance
-        * @param project Name of the project you are working with
-        * @param key API key for the project
+        * @param project Name of the _project you are working with
+        * @param key API _key for the project
         */
         public RapidAPI(string project, string key)
         {
-            this.project = project;
-            this.key = key;
+            _Client = new HttpClient();
+
+            _Client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("multipart/form-data"));
+
+            var auth = Encoding.ASCII.GetBytes($"{project}:{key}");
+            _Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(auth));
         }
 
 
@@ -57,74 +58,72 @@ namespace RapidAPISDK
         * Call a block
         * @param pack Package of the block
         * @param block Name of the block
-        * @param args Arguments to send to the block (JSON)
+        * @param parameters Arguments to send to the block (JSON)
         */
-        public Dictionary<String, Object> call(string pack, string block, object args)
+        public async Task<object> CallAsync(string pack, string block, params Parameter[] parameters)
         {
-            Dictionary<String, Object> result = new Dictionary<String, Object>();
-            var client = new HttpClient();
+            return await CallAsync<object>(pack, block, parameters);
+        }
+
+
+        /***
+        * Call a block
+        * @param pack Package of the block
+        * @param block Name of the block
+        * @param parameters Arguments to send to the block (JSON)
+        */
+        public async Task<T> CallAsync<T>(string pack, string block, params Parameter[] parameters)
+        {
+            if (string.IsNullOrWhiteSpace(pack)) throw new ArgumentException("Cannot be null or empty", nameof(pack));
+            if (string.IsNullOrWhiteSpace(block)) throw new ArgumentException("Cannot be null or empty", nameof(block));
+            if (parameters == null) parameters = new Parameter[0];
+
             MultipartFormDataContent form = new MultipartFormDataContent();
 
-            foreach (var pair in (Dictionary<string, Parameter>)args)
-            {
-                if (pair.Value.Type == "data")
-                {
-                    form.Add(new StringContent(pair.Value.Value), pair.Key);
-                }
-                else
-                {
-                    if (File.Exists(pair.Value.Value))
-                    {
-                        FileStream fileStream = new FileStream(pair.Value.Value, FileMode.Open, FileAccess.Read);
-                        StreamContent streamContent = new StreamContent(fileStream);
-                        form.Add(streamContent, pair.Key, pair.Value.Value);
-                    }
-                    else
-                    {
-                        result.Add("error", "File not exist or can't be read.");
-                        return result;
-                    }
-                }
-            }
+            foreach (var parameter in parameters)
+                parameter.AddToContent(form);
 
-            client.DefaultRequestHeaders
-                .Accept
-                .Add(new MediaTypeWithQualityHeaderValue("multipart/form-data"));
-
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
-                "Basic",
-                Convert.ToBase64String(
-                    Encoding.ASCII.GetBytes(
-                    string.Format("{0}:{1}", this.project, this.key))));
-            var response = client.PostAsync(blockURLBuilder(pack, block), form).Result;
-            var contents = response.Content.ReadAsStringAsync().Result;
+            var response = await _Client.PostAsync(BlockURLBuilder(pack, block), form);
+            var content = await response.Content.ReadAsStringAsync();
             try
             {
-                Dictionary<String, Object> map = new Dictionary<String, Object>();
-                map = JsonConvert.DeserializeObject<Dictionary<string, object>>(contents);
+                var rapidRes = JsonConvert.DeserializeObject<RapidResponse<T>>(content);
 
-                // return payload
-                object payload, outcome;
-                map.TryGetValue("payload", out payload);
-                map.TryGetValue("outcome", out outcome);
-
-                if (!response.IsSuccessStatusCode || outcome.Equals("error"))
+                if (!response.IsSuccessStatusCode || !rapidRes.IsSuccess)
                 {
-                    result.Add("error", payload);
-                    return result;
+                    var badRes = JsonConvert.DeserializeObject<RapidResponse<RapidAPIException.RapidAPIExceptionArgs>>(content);
+                    throw new RapidAPIException(badRes.Payload);
                 }
 
-                result.Add("success", payload);
-                return result;
+                return rapidRes.Payload;
             }
-            catch 
+            catch (RapidAPIException re)
             {
-                result.Add("error", contents);
-                return result;
+                throw;
+            }
+            catch (Exception e)
+            {
+                throw new Exception("Uknown Error. see inner exception for more details.", e);
             }
         }
 
         #endregion Public Functions
+
+        #region Private Classes
+
+        private class RapidResponse<T>
+        {
+            public string Outcome { get; set; }
+
+            public T Payload { get; set; }
+
+            public bool IsSuccess
+            {
+                get { return string.IsNullOrWhiteSpace(Outcome) || !Outcome.Equals("error"); }
+            }
+        }
+
+        #endregion
 
     }
 }

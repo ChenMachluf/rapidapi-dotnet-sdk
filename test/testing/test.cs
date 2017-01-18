@@ -1,72 +1,79 @@
-﻿using RapidAPISDK;
+﻿using System;
+using RapidAPISDK;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace test
 {
-    class test
+
+    class Test
     {
+
         #region Helpers
 
-        private static void getPayload( Dictionary<string, object> res )
+        private static RapidAPI RapidApi = new RapidAPI("MachlufTest", "edf34f67-d14d-4608-ab44-9b44d37d16d3");
+
+        private static T Call<T>(string pack, string block, params Parameter[] parameters)
         {
-            object payload;
-            res.TryGetValue("success", out payload);
-            if (payload != null)
-                System.Console.WriteLine("success: " + payload);
-            else 
+            try
             {
-                res.TryGetValue("error", out payload);
-                System.Console.WriteLine("error: " + payload);
+                var res = RapidApi.CallAsync<T>(pack, block, parameters).Result;
+                Console.WriteLine("success: " + res);
+                return res;
+            }
+            catch (RapidAPIException e)
+            {
+                Console.WriteLine("Server error: " + e);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Unknown exeption: " + e);
+            }
+            finally
+            {
+                Console.ReadKey();
             }
 
-            System.Console.ReadKey();
+            return default(T);
         }
 
         #endregion Helpers
 
         #region Tests
 
-        private static void testPublicPack()
+        private static void TestPublicPack()
         {
-            RapidAPI rapidApi = new RapidAPI("projectName", "********");
-            var pairs = new Dictionary<string, Parameter>();
-            pairs.Add("apiKey", new Parameter("data", ""));
-            pairs.Add("date", new Parameter("data", ""));
-            pairs.Add("highResolution", new Parameter("data", ""));
-           
-            var res = rapidApi.call("NasaAPI", "getPictureOfTheDay", pairs);
-            getPayload(res);
+            var apiKey = new DataParameter("apiKey");
+            var date = new DataParameter("date");
+            var highResolution = new DataParameter("highResolution");
 
+            var pic = Call<NasaPicOfDay>("NasaAPI", "getPictureOfTheDay", apiKey, date, highResolution);
+            if (pic == null) return;
+
+            Console.WriteLine(pic.Explanation);
+            Console.WriteLine(pic.Url);
         }
 
-        private static void testPack()
+        private static void TestPack()
         {
-            RapidAPI rapidApi = new RapidAPI("projectName", "********");
-            var pairs = new Dictionary<string, Parameter>();
-            pairs.Add("apiKey", new Parameter("data", "********"));
-            pairs.Add("string", new Parameter("data", "מבחן"));
-            pairs.Add("targetLanguage", new Parameter("data", "en"));
-            pairs.Add("sourceLanguage", new Parameter("data", ""));
+            var apiKey = new DataParameter("apiKey", "edf34f67-d14d-4608-ab44-9b44d37d16d3");
+            var str = new DataParameter("string", "מבחן");
+            var targetLanguage = new DataParameter("targetLanguage", "en");
+            var sourceLanguage = new DataParameter("sourceLanguage");
 
-            var res = rapidApi.call("GoogleTranslate", "translateAutomatic", pairs);
-            getPayload(res);
+            Call<object>("GoogleTranslate", "translateAutomatic", apiKey, str, targetLanguage, sourceLanguage);
         }
 
 
-        private static void testPackWithImg()
+        private static void TestPackWithImg()
         {
-            RapidAPI rapidApi = new RapidAPI("projectName", "********");
-            var pairs = new Dictionary<string, Parameter>();
-            pairs.Add("subscriptionKey", new Parameter("data", "********"));
-            pairs.Add("image", new Parameter("data", "http://cdn.litlepups.net/2015/08/31/cute-dog-baby-wallpaper-hd-21.jpg"));
-            //pairs.Add("image", new Parameter("file", @"FilePath"));
-            pairs.Add("width", new Parameter("data", "50"));
-            pairs.Add("height", new Parameter("data", "50"));
-            pairs.Add("smartCropping", new Parameter("data", ""));
+            var subscriptionKey = new DataParameter("subscriptionKey", "edf34f67-d14d-4608-ab44-9b44d37d16d3");
+            var image = new DataParameter("image", "http://cdn.litlepups.net/2015/08/31/cute-dog-baby-wallpaper-hd-21.jpg");
+            var width = new DataParameter("width", "50");
+            var height = new DataParameter("height", "50");
+            var smartCropping = new DataParameter("smartCropping");
 
-            var res = rapidApi.call("MicrosoftComputerVision", "analyzeImage", pairs);
-            getPayload(res);
-
+            Call<object>("MicrosoftComputerVision", "analyzeImage", subscriptionKey, image, width, height, smartCropping);
         }
 
         #endregion Tests
@@ -74,10 +81,29 @@ namespace test
 
         static void Main(string[] args)
         {
-            testPublicPack();
-            testPackWithImg();
-            testPack();
+            TestPublicPack();
+            TestPackWithImg();
+            TestPack();
 
         }
+
+        private class NasaPicOfDay
+        {
+            public string Copyright { get; set; }
+
+            public DateTime Date { get; set; }
+
+            public string Explanation { get; set; }
+
+            public string HdUrl { get; set; }
+
+            public string Url { get; set; }
+
+            [JsonProperty("media_type")]
+            public string MediaType { get; set; }
+
+            public string Title { get; set; }
+        }
+
     }
 }

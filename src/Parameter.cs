@@ -1,36 +1,37 @@
 ﻿using System;
+using System.Net.Http;
 
 namespace RapidAPISDK
 {
-    public class Parameter
+    public abstract class Parameter
     {
-        #region Private Parameters
 
-        private String type;
-        private String value;
+        #region C'tor
 
-        #endregion Private parameters
-
-        #region Properties
-
-        public string Type
+        protected Parameter()
         {
-            get { return type; }
         }
 
-        public string Value
+        protected Parameter(string key)
         {
-            get { return value; }
+            Key = key;
         }
-        #endregion Properties
 
-        #region Constructor
-        public Parameter(string type, string value)
-        {
-            this.type = type;
-            this.value = value;
-        }
-        #endregion Constructor
+        #endregion
+
+        #region Public Proeprties
+
+        public string Key { get; set; }
+
+        #endregion
+
+        #region Abstract Methods
+
+        public abstract void AddToContent(MultipartFormDataContent content);
+
+        #endregion
+
+
 
     }
 }
